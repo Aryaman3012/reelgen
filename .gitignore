@@ -9,4 +9,4 @@ input_videos
 *.avi
 *.mkv
 dist
-
+.env
