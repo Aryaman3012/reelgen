@@ -1,0 +1,12 @@
+env
+node_modules
+output
+input_videos
+*.txt
+*.log
+*.mp4
+*.mov
+*.avi
+*.mkv
+dist
+
