@@ -14,11 +14,14 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.concatenateVideos = concatenateVideos;
 exports.overlayAudioOnVideo = overlayAudioOnVideo;
+exports.chunkVideo = chunkVideo;
 const fluent_ffmpeg_1 = __importDefault(require("fluent-ffmpeg"));
 const fs_extra_1 = __importDefault(require("fs-extra"));
 const path_1 = __importDefault(require("path"));
 const child_process_1 = require("child_process");
 const ffmpeg_static_1 = __importDefault(require("ffmpeg-static"));
+const util_1 = __importDefault(require("util"));
+const execFilePromise = util_1.default.promisify(child_process_1.execFile);
 function concatenateVideos(videoDir, outputPath) {
     return __awaiter(this, void 0, void 0, function* () {
         const files = (yield fs_extra_1.default.readdir(videoDir))
@@ -77,5 +80,49 @@ function overlayAudioOnVideo(videoPath, audioPath, outputPath) {
                 .on('end', (_stdout, _stderr) => resolve())
                 .on('error', reject);
         });
+    });
+}
+function chunkVideo(inputPath_1, outputDir_1) {
+    return __awaiter(this, arguments, void 0, function* (inputPath, outputDir, minChunk = 60, maxChunk = 90, minLastChunk = 30) {
+        yield fs_extra_1.default.ensureDir(outputDir);
+        // 1. Get video duration using fluent-ffmpeg's ffprobe
+        const duration = yield new Promise((resolve, reject) => {
+            fluent_ffmpeg_1.default.ffprobe(inputPath, (err, metadata) => {
+                if (err)
+                    return reject(err);
+                if (!metadata.format || typeof metadata.format.duration !== 'number') {
+                    return reject(new Error('Could not determine video duration'));
+                }
+                resolve(metadata.format.duration);
+            });
+        });
+        // 2. Calculate chunk start/end times
+        let start = 0, idx = 1;
+        while (start < duration) {
+            let remaining = duration - start;
+            let chunkLength = Math.min(maxChunk, remaining);
+            if (remaining < minLastChunk && idx > 1) {
+                // If the last chunk would be too short, merge it with the previous
+                break;
+            }
+            if (chunkLength < minChunk && idx > 1)
+                chunkLength = remaining; // last chunk
+            if (chunkLength < minLastChunk)
+                break; // don't create too short chunk
+            // 3. Use ffmpeg to extract the chunk
+            const outputFile = path_1.default.join(outputDir, `chunk_${idx}.mp4`);
+            yield new Promise((resolve, reject) => {
+                (0, fluent_ffmpeg_1.default)(inputPath)
+                    .setStartTime(start)
+                    .setDuration(chunkLength)
+                    .outputOptions('-c', 'copy')
+                    .output(outputFile)
+                    .on('end', () => resolve())
+                    .on('error', (err) => reject(err))
+                    .run();
+            });
+            start += chunkLength;
+            idx++;
+        }
     });
 }

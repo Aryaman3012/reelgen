@@ -4,8 +4,9 @@
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "build": "tsc",
-    "start": "node dist/main.js"
+    "build": "tsc && npm run copy-videos",
+    "copy-videos": "node copy-videos.js",
+    "start": "node dist/server.js"
   },
   "keywords": [],
   "author": "",
@@ -13,15 +14,28 @@
   "type": "commonjs",
   "description": "",
   "devDependencies": {
+    "@types/concat-stream": "^2.0.3",
+    "@types/cors": "^2.8.17",
     "@types/fluent-ffmpeg": "^2.1.27",
     "@types/fs-extra": "^11.0.4",
     "typescript": "^5.8.3"
   },
   "dependencies": {
+    "@types/bcryptjs": "^2.4.6",
+    "@types/express": "^5.0.1",
+    "@types/nano": "^6.4.6",
+    "@types/uuid": "^10.0.0",
     "axios": "^1.6.7",
+    "bcryptjs": "^3.0.2",
+    "better-auth": "^1.2.7",
+    "concat-stream": "^2.0.0",
+    "cors": "^2.8.5",
     "dotenv": "^16.4.5",
+    "express": "^5.1.0",
     "ffmpeg-static": "^5.2.0",
     "fluent-ffmpeg": "^2.1.2",
-    "fs-extra": "^11.2.0"
+    "fs-extra": "^11.2.0",
+    "nano": "^10.1.4",
+    "uuid": "^11.1.0"
   }
 }

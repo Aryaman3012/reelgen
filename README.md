@@ -62,3 +62,110 @@ npm start
 
 ## License
 MIT 
+
+## API Documentation
+
+### Register User
+- **POST** `/api/register`
+- **Body:**
+  ```json
+  {
+    "email": "user@example.com",
+    "name": "User Name",
+    "password": "password123"
+  }
+  ```
+- **Response:**
+  ```json
+  { "message": "User registered", "userId": "..." }
+  ```
+
+### Login User
+- **POST** `/api/login`
+- **Body:**
+  ```json
+  {
+    "email": "user@example.com",
+    "password": "password123"
+  }
+  ```
+- **Response:**
+  ```json
+  { "token": "...", "userId": "..." }
+  ```
+
+### Save Input Text
+- **POST** `/api/input-text` (Requires Auth)
+- **Body:**
+  ```json
+  {
+    "userId": "...",
+    "text": "Your input text here"
+  }
+  ```
+- **Response:**
+  ```json
+  { "message": "Input text saved", "inputTextId": "..." }
+  ```
+
+### Save Video
+- **POST** `/api/video` (Requires Auth)
+- **Body:**
+  ```json
+  {
+    "userId": "...",
+    "inputTextId": "...",
+    "filePath": "output/chunks/chunk_1.mp4"
+  }
+  ```
+- **Response:**
+  ```json
+  { "message": "Video saved", "videoId": "..." }
+  ```
+
+### Generate Video Chunks
+- **POST** `/api/generate` (Requires Auth)
+- **Body:**
+  ```json
+  {
+    "userText": "Your input text here",
+    "userId": "...",
+    "inputTextId": "..."
+  }
+  ```
+- **Response:**
+  ```json
+  {
+    "chunks": ["output/chunks/chunk_1.mp4", ...],
+    "videos": [
+      {
+        "_id": "...",
+        "type": "video",
+        "userId": "...",
+        "inputTextId": "...",
+        "filePath": "output/chunks/chunk_1.mp4",
+        "createdAt": "..."
+      },
+      ...
+    ]
+  }
+  ```
+
+### Get Reels by Input Text
+- **GET** `/api/reels?inputTextId=...` (Requires Auth)
+- **Response:**
+  ```json
+  {
+    "reels": [
+      {
+        "_id": "...",
+        "type": "video",
+        "userId": "...",
+        "inputTextId": "...",
+        "filePath": "output/chunks/chunk_1.mp4",
+        "createdAt": "..."
+      },
+      ...
+    ]
+  }
+  ``` 
