@@ -100,13 +100,18 @@ export async function saveVideo(req: Request, res: Response) {
 export async function generateVideoChunks(req: Request, res: Response) {
   try {
     console.log("[generateVideoChunks] Incoming request:", req.body);
-    const { userText, userId, inputTextId } = req.body;
-    if (!userText || typeof userText !== "string" || !userId || !inputTextId) {
+    const { userText, inputTextId } = req.body;
+    if (!userText || typeof userText !== "string" || !inputTextId) {
       console.error("[generateVideoChunks] Invalid input:", req.body);
-      return res.status(400).json({ error: "userText, userId, and inputTextId are required." });
+      return res.status(400).json({ error: "userText and inputTextId are required." });
     }
+
+    // Create output directory
+    const outputDir = path.join(__dirname, 'output', 'videos', new Date().toISOString().replace(/[-:.TZ]/g, ''));
+    await fs.ensureDir(outputDir);
+
     // Call processUserText with new signature
-    const videoDocs = await processUserText(userText, userId, inputTextId, videosDb);
+    const videoDocs = await processUserText(userText, inputTextId, outputDir);
     res.json({ videos: videoDocs });
   } catch (error) {
     console.error("[generateVideoChunks] Error:", error);
@@ -120,24 +125,30 @@ export async function getReelsByInputText(req: Request, res: Response) {
     if (!inputTextId || typeof inputTextId !== 'string') {
       return res.status(400).json({ error: "inputTextId is required as a query parameter" });
     }
-    const result = await videosDb.find({ selector: { inputTextId } });
-    const reels = await Promise.all(result.docs.map(async (video) => {
-      try {
-        // Try to fetch the attachment (if it exists)
-        const attachmentName = video.filePath ? require('path').basename(video.filePath) : null;
-        if (attachmentName) {
-          const att = await videosDb.attachment.get(video._id, attachmentName);
-          // Convert buffer to base64 string
-          const videoData = Buffer.from(att).toString('base64');
-          return { ...video, videoData, videoDataType: 'video/mp4', attachmentName };
-        } else {
-          return { ...video, videoData: null, videoDataType: null, attachmentName: null };
+
+    // Get all video files from the output directory
+    const outputDir = path.join(__dirname, 'output', 'videos');
+    const allDirs = await fs.readdir(outputDir);
+    
+    const reels = [];
+    for (const dir of allDirs) {
+      const dirPath = path.join(outputDir, dir);
+      const stats = await fs.stat(dirPath);
+      if (stats.isDirectory()) {
+        const files = await fs.readdir(dirPath);
+        for (const file of files) {
+          if (file.endsWith('.mp4')) {
+            const filePath = path.join(dirPath, file);
+            reels.push({
+              filePath,
+              inputTextId,
+              createdAt: stats.birthtime.toISOString()
+            });
+          }
         }
-      } catch (err) {
-        // If attachment not found, just return metadata
-        return { ...video, videoData: null, videoDataType: null, attachmentName: null };
       }
-    }));
+    }
+
     res.json({ reels });
   } catch (error) {
     console.error("[getReelsByInputText] Error:", error);

@@ -3,10 +3,6 @@ import fs from "fs-extra";
 import path from "path";
 import { execFile } from "child_process";
 import ffmpegPath from "ffmpeg-static";
-import util from "util";
-import { PassThrough } from "stream";
-import concat from "concat-stream";
-const execFilePromise = util.promisify(execFile);
 
 export async function concatenateVideos(videoDir: string, outputPath: string) {
   // Always resolve videoDir relative to the project root
@@ -113,36 +109,47 @@ export async function chunkVideo(
   });
   console.log(`[chunkVideo] Video duration: ${duration}s`);
 
-  // 2. Calculate chunk start/end times with lookahead logic
-  let start = 0, idx = 1;
-  let prevChunkLength = 0;
-  while (start < duration) {
-    let remaining = duration - start;
-    let chunkLength = Math.min(maxChunk, remaining);
+  // Calculate optimal chunk size to ensure all chunks are between minChunk and maxChunk
+  let numChunks = Math.ceil(duration / maxChunk);
+  let optimalChunkSize = duration / numChunks;
 
-    // Lookahead: If taking chunkLength would leave a last chunk < minLastChunk, adjust
-    if (remaining - chunkLength < minLastChunk && remaining > maxChunk) {
-      chunkLength = remaining - minLastChunk;
-      if (chunkLength < minChunk) chunkLength = minChunk;
+  // If the optimal chunk size would create chunks smaller than minChunk,
+  // reduce the number of chunks
+  while (optimalChunkSize < minChunk && numChunks > 1) {
+    numChunks--;
+    optimalChunkSize = duration / numChunks;
+  }
+
+  console.log(`[chunkVideo] Creating ${numChunks} chunks of ~${optimalChunkSize.toFixed(1)}s each`);
+
+  // 2. Create chunks with the calculated optimal size
+  let start = 0;
+  for (let idx = 1; idx <= numChunks; idx++) {
+    let chunkLength: number;
+    
+    if (idx === numChunks) {
+      // Last chunk - use remaining duration
+      chunkLength = duration - start;
+    } else {
+      chunkLength = optimalChunkSize;
     }
 
-    // If the chunk would be too short, break
-    if (chunkLength < minLastChunk && idx > 1) break;
-
-    // For overlap: if not the first chunk, start 1 second earlier
+    // Add overlap for all chunks except the first
     let chunkStart = start;
     if (idx > 1) {
-      chunkStart = start - 1;
+      chunkStart = start - 1; // 1 second overlap
       if (chunkStart < 0) chunkStart = 0;
       chunkLength += 1; // extend chunk to cover the overlap
-      // Ensure we don't go past the video duration
-      if (chunkStart + chunkLength > duration) {
-        chunkLength = duration - chunkStart;
-      }
+    }
+
+    // Ensure we don't go past the video duration
+    if (chunkStart + chunkLength > duration) {
+      chunkLength = duration - chunkStart;
     }
 
     const outputFile = path.join(outputDir, `chunk_${idx}.mp4`);
-    console.log(`[chunkVideo] Creating chunk ${idx}: start=${chunkStart}s, duration=${chunkLength}s, output=${outputFile}`);
+    console.log(`[chunkVideo] Creating chunk ${idx}/${numChunks}: start=${chunkStart.toFixed(1)}s, duration=${chunkLength.toFixed(1)}s, output=${outputFile}`);
+    
     await new Promise<void>((resolve, reject) => {
       ffmpeg(inputPath)
         .setStartTime(chunkStart)
@@ -150,7 +157,7 @@ export async function chunkVideo(
         .outputOptions('-c', 'copy')
         .output(outputFile)
         .on('end', () => {
-          console.log(`[chunkVideo] Chunk ${idx} done: ${outputFile}`);
+          console.log(`[chunkVideo] Chunk ${idx}/${numChunks} done: ${outputFile}`);
           resolve();
         })
         .on('error', (err: Error) => {
@@ -159,100 +166,16 @@ export async function chunkVideo(
         })
         .run();
     });
+
     start += chunkLength - 1; // move start forward, but overlap by 1 second
-    idx++;
   }
-  console.log(`[chunkVideo] All chunks created.`);
+  console.log(`[chunkVideo] All ${numChunks} chunks created with optimal duration of ${optimalChunkSize.toFixed(1)}s`);
 }
 
-export async function chunkVideoToDb({
-  inputPath,
-  videosDb,
-  userId,
-  inputTextId,
-  minChunk = 60,
-  maxChunk = 90,
-  minLastChunk = 30,
-}: {
-  inputPath: string,
-  videosDb: any,
-  userId: string,
-  inputTextId: string,
-  minChunk?: number,
-  maxChunk?: number,
-  minLastChunk?: number,
-}) {
-  // 1. Get video duration
-  const duration = await new Promise<number>((resolve, reject) => {
-    ffmpeg.ffprobe(inputPath, (err, metadata) => {
-      if (err) return reject(err);
-      if (!metadata.format || typeof metadata.format.duration !== 'number') {
-        return reject(new Error('Could not determine video duration'));
-      }
-      resolve(metadata.format.duration);
-    });
-  });
-
-  // 2. Calculate chunk start/end times
-  let start = 0, idx = 1;
-  const now = new Date().toISOString();
-  const videoDocs = [];
-  while (start < duration) {
-    let remaining = duration - start;
-    let chunkLength = Math.min(maxChunk, remaining);
-    if (remaining - chunkLength < minLastChunk && remaining > maxChunk) {
-      chunkLength = remaining - minLastChunk;
-      if (chunkLength < minChunk) chunkLength = minChunk;
-    }
-    if (chunkLength < minLastChunk && idx > 1) break;
-    let chunkStart = start;
-    if (idx > 1) {
-      chunkStart = start - 1;
-      if (chunkStart < 0) chunkStart = 0;
-      chunkLength += 1;
-      if (chunkStart + chunkLength > duration) {
-        chunkLength = duration - chunkStart;
-      }
-    }
-    const chunkName = `chunk_${idx}.mp4`;
-    // Pipe ffmpeg output to buffer
-    const pass = new PassThrough();
-    const bufferPromise = new Promise<Buffer>((resolve, reject) => {
-      pass.pipe(concat(resolve));
-      pass.on('error', reject);
-    });
-    await new Promise<void>((resolve, reject) => {
-      ffmpeg(inputPath)
-        .setStartTime(chunkStart)
-        .setDuration(chunkLength)
-        .outputOptions('-c', 'copy')
-        .outputOptions('-movflags', 'frag_keyframe+empty_moov')
-        .format('mp4')
-        .on('error', reject)
-        .on('end', () => resolve())
-        .pipe(pass, { end: true });
-    });
-    const videoBuffer = await bufferPromise;
-    // Create video doc and attach
-    const video = {
-      _id: undefined,
-      type: 'video',
-      userId,
-      inputTextId,
-      filePath: chunkName,
-      createdAt: now,
-    };
-    const insertResult = await videosDb.insert(video);
-    await videosDb.attachment.insert(
-      insertResult.id,
-      chunkName,
-      videoBuffer,
-      'video/mp4',
-      { rev: insertResult.rev }
-    );
-    videoDocs.push({ ...video, _id: insertResult.id, _rev: insertResult.rev });
-    start += chunkLength - 1;
-    idx++;
-  }
-  return videoDocs;
+// Export types for video chunks
+export interface VideoChunk {
+  filePath: string;
+  userId: string;
+  inputTextId: string;
+  timestamp: Date;
 } 
