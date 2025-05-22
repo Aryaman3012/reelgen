@@ -39,8 +39,8 @@ function processUserText(userText, inputTextId, outputDir) {
         yield (0, video_1.overlayAudioOnVideo)(concatenatedVideo, ttsAudio, finalVideo);
         console.log("[processUserText] Final video with audio at:", finalVideo);
         // Chunk the final video into 60-90 second segments
-        console.log("[processUserText] Chunking video into 60-90 second segments...");
-        yield (0, video_1.chunkVideo)(finalVideo, chunksDir, 60, 90, 30);
+        console.log("[processUserText] Chunking video into 60-80 second segments...");
+        yield (0, video_1.chunkVideo)(finalVideo, chunksDir, 60, 80, 30);
         // Get all generated chunks and return their info
         const chunkFiles = yield fs_extra_1.default.readdir(chunksDir);
         const videoChunks = chunkFiles
