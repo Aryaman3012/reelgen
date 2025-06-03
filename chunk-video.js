@@ -5,7 +5,7 @@ const ffmpegPath = require('ffmpeg-static');
 ffmpeg.setFfmpegPath(ffmpegPath);
 
 // Default paths
-const DEFAULT_INPUT_VIDEO = path.join(__dirname, 'chunking', 'video.mp4');
+const DEFAULT_INPUT_VIDEO = path.join(__dirname, 'output', 'final_video_with_subtitles.mp4');
 const DEFAULT_OUTPUT_DIR = path.join(__dirname, 'output', 'chunks');
 
 // Parse command line arguments

@@ -4,7 +4,7 @@ const userText = fs.readFileSync('./userText.txt', 'utf8');
 
 // Import the compiled JS
 const { generateTTS } = require('./dist/service/tts');
-const { concatenateVideos, overlayAudioOnVideo } = require('./dist/service/video');
+const { concatenateVideos, overlayAudioOnVideo, extendVideoToMatchAudio } = require('./dist/service/video');
 
 // Function to split text into chunks without breaking words
 function splitTextIntoChunks(text, maxLen = 4000) {
@@ -97,16 +97,16 @@ async function main() {
     
     console.log('Combined audio created at:', combinedAudioPath);
     
-    // 5. Concatenate videos to match the audio duration
+    // 5. Create video sequence to match audio duration
     const inputVideosDir = path.join(__dirname, 'input_videos');
-    const combinedVideoPath = path.join(tempDir, 'combined_video.mp4');
-    console.log('Concatenating input videos...');
-    await concatenateVideos(inputVideosDir, combinedVideoPath);
+    const extendedVideoPath = path.join(tempDir, 'extended_video.mp4');
+    console.log('Creating video sequence to match audio duration...');
+    await extendVideoToMatchAudio(inputVideosDir, combinedAudioPath, extendedVideoPath);
     
-    // 6. Overlay the audio onto the video
+    // 6. Overlay the audio onto the video sequence
     const finalVideoPath = path.join(outputDir, 'final_video.mp4');
-    console.log('Overlaying audio onto video...');
-    await overlayAudioOnVideo(combinedVideoPath, combinedAudioPath, finalVideoPath);
+    console.log('Overlaying audio onto video sequence...');
+    await overlayAudioOnVideo(extendedVideoPath, combinedAudioPath, finalVideoPath);
     
     console.log('🎉 Process completed successfully!');
     console.log('Final video saved to:', finalVideoPath);

@@ -4,6 +4,32 @@ import path from "path";
 import { execFile } from "child_process";
 import ffmpegPath from "ffmpeg-static";
 
+// Helper function to get audio duration
+async function getAudioDuration(audioPath: string): Promise<number> {
+  return new Promise<number>((resolve, reject) => {
+    ffmpeg.ffprobe(audioPath, (err, metadata) => {
+      if (err) return reject(err);
+      if (!metadata.format || typeof metadata.format.duration !== 'number') {
+        return reject(new Error('Could not determine audio duration'));
+      }
+      resolve(metadata.format.duration);
+    });
+  });
+}
+
+// Helper function to get video duration
+async function getVideoDuration(videoPath: string): Promise<number> {
+  return new Promise<number>((resolve, reject) => {
+    ffmpeg.ffprobe(videoPath, (err, metadata) => {
+      if (err) return reject(err);
+      if (!metadata.format || typeof metadata.format.duration !== 'number') {
+        return reject(new Error('Could not determine video duration'));
+      }
+      resolve(metadata.format.duration);
+    });
+  });
+}
+
 export async function concatenateVideos(videoDir: string, outputPath: string) {
   // Always resolve videoDir relative to the project root
   const resolvedVideoDir = path.isAbsolute(videoDir)
@@ -69,12 +95,175 @@ export async function concatenateVideos(videoDir: string, outputPath: string) {
   });
 }
 
+// New function to extend video to match audio duration by concatenating multiple videos
+export async function extendVideoToMatchAudio(videoDir: string, audioPath: string, outputPath: string) {
+  console.log("[extendVideoToMatchAudio] Creating video sequence to match audio duration...");
+  
+  const audioDuration = await getAudioDuration(audioPath);
+  console.log(`[extendVideoToMatchAudio] Target audio duration: ${audioDuration}s`);
+  
+  // Use standardized videos directory instead of raw input videos
+  const standardizedDir = path.join(path.dirname(videoDir), 'standardized_videos');
+  
+  // Check if standardized videos exist
+  if (!await fs.pathExists(standardizedDir)) {
+    throw new Error(`Standardized videos directory not found: ${standardizedDir}\nPlease run 'node standardize-videos.js' first to create standardized videos.`);
+  }
+  
+  const allFiles = await fs.readdir(standardizedDir);
+  const videoFiles = allFiles
+    .filter(f => f.match(/\.mp4$/i))
+    .map(f => path.join(standardizedDir, f));
+  
+  if (videoFiles.length === 0) {
+    throw new Error(`No standardized videos found in ${standardizedDir}\nPlease run 'node standardize-videos.js' first.`);
+  }
+  
+  console.log(`[extendVideoToMatchAudio] Found ${videoFiles.length} standardized video files`);
+  
+  // Get duration of each video file
+  const videoDurations = [];
+  for (const videoFile of videoFiles) {
+    const duration = await getVideoDuration(videoFile);
+    videoDurations.push({ file: videoFile, duration });
+    console.log(`[extendVideoToMatchAudio] ${path.basename(videoFile)}: ${duration}s`);
+  }
+  
+  // Calculate which videos to use and in what order
+  const selectedVideos = [];
+  let currentDuration = 0;
+  let videoIndex = 0;
+  
+  while (currentDuration < audioDuration) {
+    const video = videoDurations[videoIndex % videoDurations.length];
+    const remainingTime = audioDuration - currentDuration;
+    
+    if (remainingTime >= video.duration) {
+      // Use the full video
+      selectedVideos.push({ 
+        file: video.file, 
+        duration: video.duration,
+        trim: false
+      });
+      currentDuration += video.duration;
+    } else {
+      // Trim the last video to fit exactly
+      selectedVideos.push({ 
+        file: video.file, 
+        duration: remainingTime,
+        trim: true
+      });
+      currentDuration = audioDuration;
+    }
+    
+    videoIndex++;
+    
+    // Safety check to prevent infinite loops
+    if (videoIndex > videoDurations.length * 10) {
+      console.warn("[extendVideoToMatchAudio] Safety break: too many iterations");
+      break;
+    }
+  }
+  
+  console.log(`[extendVideoToMatchAudio] Selected ${selectedVideos.length} video segments for total duration: ${currentDuration}s`);
+  
+  // Create a temporary directory for final processing
+  const tempDir = path.dirname(outputPath);
+  const segmentDir = path.join(tempDir, 'video_segments');
+  await fs.ensureDir(segmentDir);
+  
+  // Process videos (only trim if needed, since they're already standardized)
+  const finalSegments: string[] = [];
+  for (let i = 0; i < selectedVideos.length; i++) {
+    const segment = selectedVideos[i];
+    
+    if (segment.trim) {
+      // Need to trim the last video
+      const segmentPath = path.join(segmentDir, `trimmed_${i}.mp4`);
+      console.log(`[extendVideoToMatchAudio] Trimming segment ${i + 1}: ${path.basename(segment.file)} to ${segment.duration}s`);
+      
+      await new Promise<void>((resolve, reject) => {
+        ffmpeg(segment.file)
+          .setDuration(segment.duration)
+          .outputOptions([
+            '-c', 'copy', // Fast copy since already standardized
+            '-avoid_negative_ts', 'make_zero'
+          ])
+          .output(segmentPath)
+          .on('end', () => resolve())
+          .on('error', (err) => reject(err))
+          .run();
+      });
+      
+      finalSegments.push(segmentPath);
+    } else {
+      // Use the full standardized video as-is
+      finalSegments.push(segment.file);
+    }
+  }
+  
+  // Create file list for concatenation
+  const fileListPath = path.join(segmentDir, 'concat_list.txt');
+  const fileListContent = finalSegments.map(p => `file '${p.replace(/\\/g, "/")}'`).join('\n');
+  await fs.writeFile(fileListPath, fileListContent, 'utf8');
+  
+  console.log(`[extendVideoToMatchAudio] Concatenating ${finalSegments.length} video segments...`);
+  
+  // Concatenate using simple concat demuxer (fast since all videos are standardized)
+  await new Promise<void>((resolve, reject) => {
+    execFile(
+      ffmpegPath || "ffmpeg",
+      [
+        "-y",
+        "-f", "concat",
+        "-safe", "0",
+        "-i", fileListPath,
+        "-c", "copy", // Fast copy since already standardized
+        outputPath
+      ],
+      (error, stdout, stderr) => {
+        if (error) {
+          console.error("ffmpeg concat error:", stderr || error.message);
+          reject(new Error(stderr || error.message));
+        } else {
+          resolve();
+        }
+      }
+    );
+  });
+  
+  // Validate the final video duration
+  const finalDuration = await getVideoDuration(outputPath);
+  console.log(`[extendVideoToMatchAudio] Final video duration: ${finalDuration}s (expected: ${audioDuration}s)`);
+  
+  if (Math.abs(finalDuration - audioDuration) > 2.0) {
+    console.warn(`[extendVideoToMatchAudio] Warning: Duration mismatch! Expected ${audioDuration}s, got ${finalDuration}s`);
+  }
+  
+  // Clean up temporary files
+  await fs.remove(segmentDir);
+  
+  console.log(`[extendVideoToMatchAudio] Video sequence created successfully: ${outputPath}`);
+}
+
 export async function overlayAudioOnVideo(videoPath: string, audioPath: string, outputPath: string) {
   console.log("[overlayAudioOnVideo] Overlaying audio:", audioPath, "on video:", videoPath, "->", outputPath);
+  
+  const audioDuration = await getAudioDuration(audioPath);
+  const videoDuration = await getVideoDuration(videoPath);
+  
+  console.log(`[overlayAudioOnVideo] Audio duration: ${audioDuration}s, Video duration: ${videoDuration}s`);
+  
   return new Promise<void>((resolve, reject) => {
     ffmpeg(videoPath)
       .addInput(audioPath)
-      .outputOptions('-map', '0:v:0', '-map', '1:a:0', '-c:v', 'copy', '-shortest')
+      .outputOptions([
+        '-map', '0:v:0',              // Map video from first input
+        '-map', '1:a:0',              // Map audio from second input (our TTS audio)
+        '-c:v', 'copy',               // Copy video codec for speed
+        '-c:a', 'aac',                // Re-encode audio to AAC
+        '-t', audioDuration.toString() // Set output duration to audio duration
+      ])
       .save(outputPath)
       .on('end', (_stdout: string | null, _stderr: string | null) => {
         console.log("[overlayAudioOnVideo] Done. Output:", outputPath);
