@@ -110,13 +110,27 @@ export async function extendVideoToMatchAudio(videoDir: string, audioPath: strin
     throw new Error(`Standardized videos directory not found: ${standardizedDir}\nPlease run 'node standardize-videos.js' first to create standardized videos.`);
   }
   
-  const allFiles = await fs.readdir(standardizedDir);
+  // List all subfolders in standardizedDir
+  const allEntries = await fs.readdir(standardizedDir, { withFileTypes: true });
+  const subfolders = allEntries.filter(e => e.isDirectory()).map(e => path.join(standardizedDir, e.name));
+
+  let themedDir = standardizedDir;
+  if (subfolders.length > 0) {
+    // Pick a random subfolder
+    const randomIndex = Math.floor(Math.random() * subfolders.length);
+    themedDir = subfolders[randomIndex];
+    console.log(`[extendVideoToMatchAudio] Picked themed subfolder: ${path.basename(themedDir)}`);
+  } else {
+    console.log(`[extendVideoToMatchAudio] No subfolders found, using root standardized_videos directory.`);
+  }
+  
+  const allFiles = await fs.readdir(themedDir);
   const videoFiles = allFiles
     .filter(f => f.match(/\.mp4$/i))
-    .map(f => path.join(standardizedDir, f));
+    .map(f => path.join(themedDir, f));
   
   if (videoFiles.length === 0) {
-    throw new Error(`No standardized videos found in ${standardizedDir}\nPlease run 'node standardize-videos.js' first.`);
+    throw new Error(`No standardized videos found in ${themedDir}\nPlease run 'node standardize-videos.js' first.`);
   }
   
   console.log(`[extendVideoToMatchAudio] Found ${videoFiles.length} standardized video files`);
@@ -132,10 +146,11 @@ export async function extendVideoToMatchAudio(videoDir: string, audioPath: strin
   // Calculate which videos to use and in what order
   const selectedVideos = [];
   let currentDuration = 0;
-  let videoIndex = 0;
   
   while (currentDuration < audioDuration) {
-    const video = videoDurations[videoIndex % videoDurations.length];
+    // Randomly select a video instead of cycling through sequentially
+    const randomIndex = Math.floor(Math.random() * videoDurations.length);
+    const video = videoDurations[randomIndex];
     const remainingTime = audioDuration - currentDuration;
     
     if (remainingTime >= video.duration) {
@@ -156,10 +171,8 @@ export async function extendVideoToMatchAudio(videoDir: string, audioPath: strin
       currentDuration = audioDuration;
     }
     
-    videoIndex++;
-    
-    // Safety check to prevent infinite loops
-    if (videoIndex > videoDurations.length * 10) {
+    // Safety check to prevent infinite loops (increased limit since we're not tracking videoIndex anymore)
+    if (selectedVideos.length > videoDurations.length * 20) {
       console.warn("[extendVideoToMatchAudio] Safety break: too many iterations");
       break;
     }

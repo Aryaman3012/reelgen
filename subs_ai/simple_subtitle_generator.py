@@ -186,44 +186,20 @@ def main():
         return 1
     
     try:
-        # Generate subtitles in SRT format
-        subtitle_path = generate_subtitles(
+        # Generate subtitles in VTT format only
+        vtt_path = generate_subtitles(
             str(video_path),
             output_dir=str(project_root / "output"),
             model_type='base',  # Good balance of speed and accuracy
-            subtitle_format='srt'
+            subtitle_format='vtt'
         )
         
         print(f"\n🎉 SUCCESS!")
-        print(f"📁 Subtitle file: {subtitle_path}")
+        print(f"🌐 VTT subtitle file: {vtt_path}")
         
-        # Also generate VTT format for web use
-        try:
-            vtt_path = generate_subtitles(
-                str(video_path),
-                output_dir=str(project_root / "output"),
-                model_type='base',
-                subtitle_format='vtt'
-            )
-            print(f"🌐 Web subtitle file: {vtt_path}")
-        except Exception as e:
-            print(f"⚠️ Could not generate VTT format: {e}")
-        
-        # Generate a plain text transcript as well
-        try:
-            txt_path = generate_subtitles(
-                str(video_path),
-                output_dir=str(project_root / "output"),
-                model_type='base',
-                subtitle_format='txt'
-            )
-            print(f"📄 Text transcript: {txt_path}")
-        except Exception as e:
-            print(f"⚠️ Could not generate text transcript: {e}")
-        
-        print(f"\n📱 You can now use these subtitle files with your video player!")
+        print(f"\n📱 You can now use this subtitle file with your video player!")
         print(f"🎬 Video file: {video_path}")
-        print(f"📝 Subtitle files saved in: {project_root / 'output'}")
+        print(f"📝 Subtitle file saved in: {project_root / 'output'}")
         
         return 0
         

@@ -16,17 +16,9 @@ def check_ffmpeg():
     except (subprocess.CalledProcessError, FileNotFoundError):
         return False
 
-def burn_subtitles_into_video(video_path, subtitle_path, output_path):
+def burn_subtitles_alternative(video_path, subtitle_path, output_path):
     """
-    Burn subtitles into video using ffmpeg.
-    
-    Args:
-        video_path (str): Path to the input video
-        subtitle_path (str): Path to the SRT subtitle file
-        output_path (str): Path for the output video with burned subtitles
-    
-    Returns:
-        bool: True if successful, False otherwise
+    Alternative method to burn subtitles using a simpler ffmpeg approach.
     """
     try:
         print(f"🔥 Burning subtitles into video...")
@@ -34,55 +26,6 @@ def burn_subtitles_into_video(video_path, subtitle_path, output_path):
         print(f"📝 Subtitle file: {subtitle_path}")
         print(f"💾 Output video: {output_path}")
         
-        # Convert paths to proper format for ffmpeg
-        video_path_str = str(video_path).replace('\\', '/')
-        subtitle_path_str = str(subtitle_path).replace('\\', '/')
-        output_path_str = str(output_path).replace('\\', '/')
-        
-        # FFmpeg command to burn subtitles into video
-        # Using Alignment=10 for middle center positioning
-        ffmpeg_cmd = [
-            'ffmpeg',
-            '-i', video_path_str,
-            '-vf', f"subtitles='{subtitle_path_str}':force_style='Alignment=10,MarginV=0,FontSize=20,PrimaryColour=&Hffffff,OutlineColour=&H000000,Outline=2,Shadow=1'",
-            '-c:a', 'copy',  # Copy audio without re-encoding
-            '-c:v', 'libx264',  # Re-encode video to ensure compatibility
-            '-preset', 'medium',  # Encoding speed preset
-            '-crf', '23',  # Quality setting
-            '-y',  # Overwrite output file if it exists
-            output_path_str
-        ]
-        
-        print("⚙️ Running ffmpeg command...")
-        
-        # Run ffmpeg command with shell=False for better control
-        process = subprocess.run(
-            ffmpeg_cmd,
-            capture_output=True,
-            text=True,
-            check=True
-        )
-        
-        print("✅ Successfully burned subtitles into video!")
-        return True
-        
-    except subprocess.CalledProcessError as e:
-        print(f"❌ FFmpeg error: {e}")
-        print(f"FFmpeg stderr: {e.stderr}")
-        
-        # Try alternative method if the first one fails
-        print("🔄 Trying alternative subtitle burning method...")
-        return burn_subtitles_alternative(video_path, subtitle_path, output_path)
-        
-    except Exception as e:
-        print(f"❌ Error burning subtitles: {e}")
-        return False
-
-def burn_subtitles_alternative(video_path, subtitle_path, output_path):
-    """
-    Alternative method to burn subtitles using a simpler ffmpeg approach.
-    """
-    try:
         print("🔄 Using alternative subtitle burning method...")
         
         # Convert paths to Windows format with double backslashes
@@ -179,10 +122,10 @@ def main():
         print("   - Linux: sudo apt install ffmpeg")
         return 1
     
-    # Define paths
+    # Define paths - using VTT instead of SRT
     project_root = Path(__file__).parent
     video_path = project_root / "output" / "final_video.mp4"
-    subtitle_path = project_root / "output" / "final_video.srt"
+    subtitle_path = project_root / "output" / "final_video.vtt"
     output_video_path = project_root / "output" / "final_video_with_subtitles.mp4"
     
     # Check if files exist
@@ -196,8 +139,8 @@ def main():
         print("💡 Run 'python generate_subtitles_only.py' first to generate subtitle files")
         return 1
     
-    # Burn subtitles into video
-    success = burn_subtitles_into_video(video_path, subtitle_path, output_video_path)
+    # Burn subtitles into video using the working alternative method
+    success = burn_subtitles_alternative(video_path, subtitle_path, output_video_path)
     
     if success:
         print("\n🎉 SUCCESS!")

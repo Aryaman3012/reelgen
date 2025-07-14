@@ -20,8 +20,8 @@ async function getVideoDuration(videoPath) {
 }
 
 async function standardizeVideos() {
-  const inputDir = path.join(__dirname, 'input_videos');
-  const outputDir = path.join(__dirname, 'standardized_videos');
+  const inputDir = path.join(__dirname, 'input_video124');
+  const outputDir = path.join(__dirname, 'input_video124', 'standardized_videos');
   
   console.log('🎬 Video Standardization Script');
   console.log('================================');
@@ -78,14 +78,14 @@ async function standardizeVideos() {
             '-preset', 'medium',     // Encoding speed vs quality
             '-crf', '23',           // Quality (lower = better quality)
             '-r', '30',             // Frame rate
-            '-s', '1280x720',       // Resolution
+            '-s', '720x1280',       // Resolution (9:16 aspect ratio)
             '-an',                  // Remove audio (we'll add TTS audio later)
             '-avoid_negative_ts', 'make_zero',
             '-movflags', '+faststart' // Optimize for streaming
           ])
           .output(outputPath)
           .on('start', (commandLine) => {
-            console.log(`   🎯 Standardizing to 1280x720, 30fps, H.264...`);
+            console.log(`   🎯 Standardizing to 720x1280 (9:16), 30fps, H.264...`);
           })
           .on('progress', (progress) => {
             if (progress.percent) {
@@ -128,7 +128,7 @@ async function standardizeVideos() {
   console.log(`📁 Standardized videos saved to: ${outputDir}`);
   console.log('');
   console.log('📋 Standardization settings used:');
-  console.log('   - Resolution: 1280x720');
+  console.log('   - Resolution: 720x1280 (9:16 aspect ratio)');
   console.log('   - Frame rate: 30fps');
   console.log('   - Codec: H.264 (libx264)');
   console.log('   - Quality: CRF 23 (high quality)');

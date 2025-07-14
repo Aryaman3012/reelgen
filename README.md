@@ -56,7 +56,8 @@ This will:
 
 ## Run the Project
 ```sh
-npm start
+npm generate.js
+npm chunk-video.js
 ```
 
 - The script will:

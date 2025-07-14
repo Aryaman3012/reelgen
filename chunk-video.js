@@ -14,8 +14,8 @@ const inputVideo = args[0] || DEFAULT_INPUT_VIDEO;
 const outputDir = args[1] || DEFAULT_OUTPUT_DIR;
 
 // Configuration
-const MIN_CHUNK_DURATION = 60; // in seconds
-const MAX_CHUNK_DURATION = 75; // in seconds
+const MIN_CHUNK_DURATION = 45; // in seconds
+const MAX_CHUNK_DURATION = 85; // in seconds
 
 async function chunkVideo(inputPath, outputDir) {
   if (!await fs.pathExists(inputPath)) {
