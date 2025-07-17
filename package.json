@@ -4,8 +4,9 @@
   "main": "dist/server.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "build": "tsc && npm run copy-videos",
-    "copy-videos": "node copy-videos.js",
+    "build:ts": "tsc",
+    "build:copy": "node copy-videos.js",
+    "build": "npm run build:ts",
     "start": "node dist/server.js",
     "dev": "tsc && node dist/server.js",
     "server": "node dist/server.js"

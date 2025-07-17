@@ -16,8 +16,8 @@ WORKDIR /app
 # Copy package files
 COPY package*.json ./
 
-# Install Node.js dependencies
-RUN npm install
+# Install ALL Node.js dependencies (including dev dependencies)
+RUN npm install --production=false
 
 # Upgrade pip and install build tools
 RUN python3 -m pip install --no-cache-dir --upgrade pip setuptools wheel
@@ -32,11 +32,11 @@ RUN pip3 install --no-cache-dir --index-url https://download.pytorch.org/whl/cpu
 # Copy the rest of the application
 COPY . .
 
-# Build TypeScript files
-RUN npm run build
-
-# Create necessary directories
+# Create necessary directories first
 RUN mkdir -p output processed_videos standardized_videos temp
+
+# Build TypeScript files (with error output)
+RUN npm run build || (echo "TypeScript build failed" && exit 1)
 
 # Set environment variables with defaults
 ENV NODE_ENV=production \
