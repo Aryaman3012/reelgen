@@ -8,13 +8,21 @@ import dotenv from 'dotenv';
 import { generateTTS } from './service/tts';
 import { concatenateVideos, overlayAudioOnVideo, chunkVideo } from './service/video';
 import { processUserText } from './main';
+import AWS from 'aws-sdk';
 
 // Load environment variables
 dotenv.config();
 
-const app = express();
-const PORT = process.env.PORT || 3000;
+// Initialize AWS SDK
+const s3 = new AWS.S3({
+  accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+  secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+  region: process.env.AWS_REGION
+});
+
 const execAsync = promisify(exec);
+const PORT = process.env.PORT || 3000;
+const app = express();
 
 // Utility function to handle errors
 const handleError = (error: unknown): { message: string; stack?: string } => {
@@ -36,7 +44,61 @@ app.get('/health', (req, res) => {
   res.json({ status: 'OK', timestamp: new Date().toISOString() });
 });
 
-// Pipeline API Endpoints
+/**
+ * Upload processed video to S3
+ * POST /api/upload-to-s3
+ */
+// @ts-ignore Express v5 type compatibility
+app.post('/api/upload-to-s3', async (req, res) => {
+  try {
+    const { videoPath } = req.body;
+    
+    if (!videoPath) {
+      return res.status(400).json({ error: 'Video path is required' });
+    }
+
+    // Validate video path exists
+    if (!await fs.pathExists(videoPath)) {
+      return res.status(400).json({ error: `Video file not found: ${videoPath}` });
+    }
+
+    console.log('[API] Starting S3 upload...');
+    
+    // Upload to S3
+    const fileName = path.basename(videoPath);
+    const fileStream = fs.createReadStream(videoPath);
+    
+    const uploadParams = {
+      Bucket: process.env.AWS_S3_BUCKET || '',
+      Key: `processed_videos/${fileName}`,
+      Body: fileStream
+    };
+
+    const uploadResult = await s3.upload(uploadParams).promise();
+    
+    res.json({
+      success: true,
+      message: 'Video uploaded to S3 successfully',
+      input: {
+        videoPath: videoPath
+      },
+      output: {
+        s3Location: uploadResult.Location,
+        s3Key: uploadResult.Key,
+        s3Bucket: uploadResult.Bucket
+      }
+    });
+    
+  } catch (error) {
+    console.error('[API] Error in S3 upload:', error);
+    const err = error as Error;
+    res.status(500).json({
+      error: 'Failed to upload to S3',
+      details: err.message,
+      stack: err.stack
+    });
+  }
+});
 
 /**
  * POST /api/pipeline/generate
