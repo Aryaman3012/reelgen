@@ -22,14 +22,12 @@ RUN npm install
 # Upgrade pip and install build tools
 RUN python3 -m pip install --no-cache-dir --upgrade pip setuptools wheel
 
-# Install PyTorch separately to handle its large size better
-RUN pip3 install --no-cache-dir torch==2.1.0 torchaudio==2.1.0
-
 # Copy Python requirements
 COPY requirements.txt ./
 
-# Install Python dependencies with retries for reliability
-RUN pip3 install --no-cache-dir -r requirements.txt
+# Install Python dependencies with CPU-only PyTorch first
+RUN pip3 install --no-cache-dir --index-url https://download.pytorch.org/whl/cpu torch==2.1.0 torchaudio==2.1.0 && \
+    pip3 install --no-cache-dir -r requirements.txt
 
 # Copy the rest of the application
 COPY . .
