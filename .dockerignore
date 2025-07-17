@@ -1,0 +1,30 @@
+# Version control
+.git
+.gitignore
+
+# Dependencies
+node_modules
+__pycache__
+*.pyc
+
+# Output directories
+output
+processed_videos
+standardized_videos
+temp
+
+# Environment files
+.env
+*.env
+
+# IDE files
+.vscode
+.idea
+
+# Logs
+*.log
+npm-debug.log*
+
+# System files
+.DS_Store
+Thumbs.db 

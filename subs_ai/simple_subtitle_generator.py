@@ -13,7 +13,7 @@ def install_whisper():
     """Install openai-whisper if not already installed."""
     try:
         import whisper
-        print("✓ openai-whisper is already installed")
+        print("openai-whisper is already installed")
         return True
     except ImportError:
         print("Installing openai-whisper...")
@@ -22,10 +22,10 @@ def install_whisper():
             subprocess.check_call([
                 sys.executable, "-m", "pip", "install", "openai-whisper"
             ])
-            print("✓ openai-whisper installed successfully")
+            print("openai-whisper installed successfully")
             return True
         except subprocess.CalledProcessError as e:
-            print(f"❌ Failed to install openai-whisper: {e}")
+            print(f"Failed to install openai-whisper: {e}")
             return False
 
 def format_timestamp(seconds):
@@ -74,17 +74,17 @@ def generate_subtitles(video_path, output_dir=None, model_type='base', subtitle_
         if not os.path.exists(video_path):
             raise FileNotFoundError(f"Video file not found: {video_path}")
         
-        print(f"🎬 Processing video: {video_path}")
-        print(f"🤖 Using Whisper model: {model_type}")
-        print(f"📝 Output format: {subtitle_format}")
-        print(f"📏 Max words per line: 4")
+        print(f"Processing video: {video_path}")
+        print(f"Using Whisper model: {model_type}")
+        print(f"Output format: {subtitle_format}")
+        print(f"Max words per line: 4")
         
         # Load the model
         print("Loading model...")
         model = whisper.load_model(model_type)
         
         # Transcribe the video
-        print("🎤 Transcribing audio... This may take a while depending on video length.")
+        print("Transcribing audio... This may take a while depending on video length.")
         result = model.transcribe(video_path)
         
         # Determine output path
@@ -96,7 +96,7 @@ def generate_subtitles(video_path, output_dir=None, model_type='base', subtitle_
             subtitle_path = str(Path(video_path).parent / f"{video_name}.{subtitle_format}")
         
         # Save subtitles
-        print(f"💾 Saving subtitles to: {subtitle_path}")
+        print(f"Saving subtitles to: {subtitle_path}")
         
         if subtitle_format.lower() == 'srt':
             # Generate SRT format with 4-word line limit
@@ -159,11 +159,11 @@ def generate_subtitles(video_path, output_dir=None, model_type='base', subtitle_
         else:
             raise ValueError(f"Unsupported subtitle format: {subtitle_format}")
         
-        print("✅ Subtitles generated successfully!")
+        print("Subtitles generated successfully!")
         return subtitle_path
         
     except Exception as e:
-        print(f"❌ Error generating subtitles: {e}")
+        print(f"Error generating subtitles: {e}")
         raise
 
 def main():
@@ -171,7 +171,7 @@ def main():
     
     # Install whisper if needed
     if not install_whisper():
-        print("❌ Could not install openai-whisper")
+        print("Could not install openai-whisper")
         return 1
     
     # Define paths
@@ -179,10 +179,10 @@ def main():
     project_root = script_dir.parent
     video_path = project_root / "output" / "final_video.mp4"
     
-    print(f"🎯 Target video: {video_path}")
+    print(f"Target video: {video_path}")
     
     if not video_path.exists():
-        print(f"❌ Video file not found: {video_path}")
+        print(f"Video file not found: {video_path}")
         return 1
     
     try:
@@ -194,17 +194,17 @@ def main():
             subtitle_format='vtt'
         )
         
-        print(f"\n🎉 SUCCESS!")
-        print(f"🌐 VTT subtitle file: {vtt_path}")
+        print(f"\nSUCCESS!")
+        print(f"VTT subtitle file: {vtt_path}")
         
-        print(f"\n📱 You can now use this subtitle file with your video player!")
-        print(f"🎬 Video file: {video_path}")
-        print(f"📝 Subtitle file saved in: {project_root / 'output'}")
+        print(f"\nYou can now use this subtitle file with your video player!")
+        print(f"Video file: {video_path}")
+        print(f"Subtitle file saved in: {project_root / 'output'}")
         
         return 0
         
     except Exception as e:
-        print(f"❌ Failed to generate subtitles: {e}")
+        print(f"Failed to generate subtitles: {e}")
         return 1
 
 if __name__ == "__main__":

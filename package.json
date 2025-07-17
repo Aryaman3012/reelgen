@@ -1,12 +1,14 @@
 {
   "name": "reelgen",
   "version": "1.0.0",
-  "main": "index.js",
+  "main": "dist/server.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "build": "tsc && npm run copy-videos",
     "copy-videos": "node copy-videos.js",
-    "start": "node dist/server.js"
+    "start": "node dist/server.js",
+    "dev": "tsc && node dist/server.js",
+    "server": "node dist/server.js"
   },
   "keywords": [],
   "author": "",

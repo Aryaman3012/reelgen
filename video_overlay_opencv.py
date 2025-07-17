@@ -20,7 +20,7 @@ def clean_processed_videos_directory(processed_dir: str):
     Args:
         processed_dir: Path to processed videos directory
     """
-    print("🧹 Cleaning processed videos directory...")
+    print("Cleaning processed videos directory...")
     
     # Clean processed videos directory
     if os.path.exists(processed_dir):
@@ -31,9 +31,9 @@ def clean_processed_videos_directory(processed_dir: str):
                     os.remove(file_path)
                 elif os.path.isdir(file_path):
                     shutil.rmtree(file_path)
-            print(f"✅ Cleaned processed videos directory: {processed_dir}")
+            print(f"Cleaned processed videos directory: {processed_dir}")
         except Exception as e:
-            print(f"⚠️ Warning: Could not clean processed videos directory: {e}")
+            print(f"Warning: Could not clean processed videos directory: {e}")
     
     # Recreate directory
     os.makedirs(processed_dir, exist_ok=True)
@@ -45,15 +45,15 @@ def clean_chunks_directory(chunks_dir: str):
     Args:
         chunks_dir: Path to chunks directory
     """
-    print("🧹 Cleaning chunks directory...")
+    print("Cleaning chunks directory...")
     
     # Clean chunks directory
     if os.path.exists(chunks_dir):
         try:
             shutil.rmtree(chunks_dir)
-            print(f"✅ Cleaned chunks directory: {chunks_dir}")
+            print(f"Cleaned chunks directory: {chunks_dir}")
         except Exception as e:
-            print(f"⚠️ Warning: Could not clean chunks directory: {e}")
+            print(f"Warning: Could not clean chunks directory: {e}")
     
     # Recreate directory
     os.makedirs(chunks_dir, exist_ok=True)
@@ -101,7 +101,7 @@ def overlay_text_on_chunks_opencv(video_files: List[str], caption: str, output_d
             cap = cv2.VideoCapture(video_file)
             
             if not cap.isOpened():
-                print(f"❌ Error: Could not open video file {video_file}")
+                print(f"Error: Could not open video file {video_file}")
                 continue
             
             # Get video properties
@@ -218,24 +218,24 @@ def overlay_text_on_chunks_opencv(video_files: List[str], caption: str, output_d
                     # Remove temporary file
                     os.remove(temp_output_file)
                     output_files.append(output_file)
-                    print(f"✅ Video {unique_number} completed with audio: {output_file}")
+                    print(f"Video {unique_number} completed with audio: {output_file}")
                 else:
-                    print(f"⚠️ Warning: Audio merge failed for Video {unique_number}")
+                    print(f"Warning: Audio merge failed for Video {unique_number}")
                     print(f"FFmpeg error: {result.stderr}")
                     # Fallback: use the temp file without audio
                     os.rename(temp_output_file, output_file)
                     output_files.append(output_file)
-                    print(f"✅ Video {unique_number} completed (no audio): {output_file}")
+                    print(f"Video {unique_number} completed (no audio): {output_file}")
                     
             except FileNotFoundError:
-                print(f"⚠️ Warning: FFmpeg not found. Video {unique_number} will have no audio.")
+                print(f"Warning: FFmpeg not found. Video {unique_number} will have no audio.")
                 # Fallback: use the temp file without audio
                 os.rename(temp_output_file, output_file)
                 output_files.append(output_file)
-                print(f"✅ Video {unique_number} completed (no audio): {output_file}")
+                print(f"Video {unique_number} completed (no audio): {output_file}")
             
         except Exception as e:
-            print(f"❌ Error processing {video_file}: {str(e)}")
+            print(f"Error processing {video_file}: {str(e)}")
     
     return output_files
 
@@ -270,13 +270,13 @@ def main():
     try:
         with open("userText.txt", "r", encoding="utf-8") as f:
             CAPTION = f.readline().strip()
-        print(f"📖 Caption loaded from userText.txt: {CAPTION}")
+        print(f"Caption loaded from userText.txt: {CAPTION}")
     except FileNotFoundError:
         CAPTION = "Default Caption"
-        print("⚠️ userText.txt not found, using default caption")
+        print("userText.txt not found, using default caption")
     except Exception as e:
         CAPTION = "Default Caption"
-        print(f"⚠️ Error reading userText.txt: {e}")
+        print(f"Error reading userText.txt: {e}")
     
     # Chunks directory
     CHUNKS_DIR = "output/chunks"
@@ -291,30 +291,30 @@ def main():
     VIDEO_CHUNKS = get_video_chunks(CHUNKS_DIR)
     
     if not VIDEO_CHUNKS:
-        print(f"❌ No video files found in '{CHUNKS_DIR}' directory.")
+        print(f"No video files found in '{CHUNKS_DIR}' directory.")
         print(f"Please ensure video files exist in: {os.path.abspath(CHUNKS_DIR)}")
         return
     
-    print(f"🎬 Found {len(VIDEO_CHUNKS)} video chunks in '{CHUNKS_DIR}':")
+    print(f"Found {len(VIDEO_CHUNKS)} video chunks in '{CHUNKS_DIR}':")
     for i, chunk in enumerate(VIDEO_CHUNKS, 1):
         print(f"   {i}. {os.path.basename(chunk)}")
-    print(f"📝 Caption: {CAPTION}")
-    print(f"📁 Output directory: {OUTPUT_DIR}")
+    print(f"Caption: {CAPTION}")
+    print(f"Output directory: {OUTPUT_DIR}")
     print("-" * 50)
     
     # Process the videos with numbering starting from 1
     output_files = overlay_text_on_chunks_opencv(VIDEO_CHUNKS, CAPTION, OUTPUT_DIR, start_number=1)
     
     print("\n" + "=" * 50)
-    print("🎉 Processing complete!")
-    print(f"✅ {len(output_files)} videos processed successfully")
+    print("Processing complete!")
+    print(f"{len(output_files)} videos processed successfully")
     print("\nOutput files:")
     for file in output_files:
-        print(f"   📹 {file}")
+        print(f"   {file}")
     
     # Clean chunks directory after processing
     clean_chunks_directory(CHUNKS_DIR)
-    print("🧹 Chunks directory cleaned after processing")
+    print("Chunks directory cleaned after processing")
 
 if __name__ == "__main__":
     main() 

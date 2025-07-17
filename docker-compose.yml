@@ -1,0 +1,18 @@
+version: '3.8'
+
+services:
+  reelgen:
+    build: .
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./output:/app/output
+      - ./processed_videos:/app/processed_videos
+      - ./standardized_videos:/app/standardized_videos
+      - ./temp:/app/temp
+      - ./userText.txt:/app/userText.txt
+    environment:
+      - NODE_ENV=production
+      - PYTHONUNBUFFERED=1
+    command: node src/main.js
+    restart: unless-stopped 

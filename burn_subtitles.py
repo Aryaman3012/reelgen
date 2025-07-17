@@ -21,12 +21,12 @@ def burn_subtitles_alternative(video_path, subtitle_path, output_path):
     Alternative method to burn subtitles using a simpler ffmpeg approach.
     """
     try:
-        print(f"🔥 Burning subtitles into video...")
-        print(f"📹 Input video: {video_path}")
-        print(f"📝 Subtitle file: {subtitle_path}")
-        print(f"💾 Output video: {output_path}")
+        print(f"Burning subtitles into video...")
+        print(f"Input video: {video_path}")
+        print(f"Subtitle file: {subtitle_path}")
+        print(f"Output video: {output_path}")
         
-        print("🔄 Using alternative subtitle burning method...")
+        print("Using alternative subtitle burning method...")
         
         # Convert paths to Windows format with double backslashes
         subtitle_path_escaped = str(subtitle_path).replace('\\', '\\\\').replace(':', '\\:')
@@ -46,7 +46,7 @@ def burn_subtitles_alternative(video_path, subtitle_path, output_path):
             str(output_path)
         ]
         
-        print("⚙️ Running alternative ffmpeg command...")
+        print("Running alternative ffmpeg command...")
         
         process = subprocess.run(
             ffmpeg_cmd,
@@ -55,18 +55,18 @@ def burn_subtitles_alternative(video_path, subtitle_path, output_path):
             check=True
         )
         
-        print("✅ Successfully burned subtitles using alternative method!")
+        print("Successfully burned subtitles using alternative method!")
         return True
         
     except subprocess.CalledProcessError as e:
-        print(f"❌ Alternative method also failed: {e}")
+        print(f"Alternative method also failed: {e}")
         print(f"FFmpeg stderr: {e.stderr}")
         
         # Try the simplest possible method
         return burn_subtitles_simple(video_path, subtitle_path, output_path)
     
     except Exception as e:
-        print(f"❌ Error with alternative method: {e}")
+        print(f"Error with alternative method: {e}")
         return False
 
 def burn_subtitles_simple(video_path, subtitle_path, output_path):
@@ -74,7 +74,7 @@ def burn_subtitles_simple(video_path, subtitle_path, output_path):
     Simplest subtitle burning method with center positioning.
     """
     try:
-        print("🔄 Using simplest subtitle burning method...")
+        print("Using simplest subtitle burning method...")
         
         # Most basic subtitle burning command with center positioning
         ffmpeg_cmd = [
@@ -86,7 +86,7 @@ def burn_subtitles_simple(video_path, subtitle_path, output_path):
             str(output_path)
         ]
         
-        print("⚙️ Running simple ffmpeg command...")
+        print("Running simple ffmpeg command...")
         
         process = subprocess.run(
             ffmpeg_cmd,
@@ -95,28 +95,28 @@ def burn_subtitles_simple(video_path, subtitle_path, output_path):
             check=True
         )
         
-        print("✅ Successfully burned subtitles using simple method!")
+        print("Successfully burned subtitles using simple method!")
         return True
         
     except subprocess.CalledProcessError as e:
-        print(f"❌ Simple method failed: {e}")
+        print(f"Simple method failed: {e}")
         print(f"FFmpeg stderr: {e.stderr}")
         return False
     
     except Exception as e:
-        print(f"❌ Error with simple method: {e}")
+        print(f"Error with simple method: {e}")
         return False
 
 def main():
     """Main function to burn subtitles into video."""
     
-    print("🔥 Burning subtitles into video...")
+    print("Burning subtitles into video...")
     print("=" * 50)
     
     # Check if ffmpeg is available
     if not check_ffmpeg():
-        print("❌ FFmpeg not found. Please install FFmpeg to burn subtitles into video.")
-        print("💡 To install FFmpeg:")
+        print("FFmpeg not found. Please install FFmpeg to burn subtitles into video.")
+        print("To install FFmpeg:")
         print("   - Windows: choco install ffmpeg  or  scoop install ffmpeg")
         print("   - macOS: brew install ffmpeg")
         print("   - Linux: sudo apt install ffmpeg")
@@ -130,29 +130,29 @@ def main():
     
     # Check if files exist
     if not video_path.exists():
-        print(f"❌ Video file not found: {video_path}")
-        print("💡 Make sure you have 'output/final_video.mp4' file")
+        print(f"Video file not found: {video_path}")
+        print("Make sure you have 'output/final_video.mp4' file")
         return 1
     
     if not subtitle_path.exists():
-        print(f"❌ Subtitle file not found: {subtitle_path}")
-        print("💡 Run 'python generate_subtitles_only.py' first to generate subtitle files")
+        print(f"Subtitle file not found: {subtitle_path}")
+        print("Run 'python generate_subtitles_only.py' first to generate subtitle files")
         return 1
     
     # Burn subtitles into video using the working alternative method
     success = burn_subtitles_alternative(video_path, subtitle_path, output_video_path)
     
     if success:
-        print("\n🎉 SUCCESS!")
+        print("\nSUCCESS!")
         print("=" * 50)
-        print(f"📁 Original video: {video_path}")
-        print(f"📁 Video with burned subtitles: {output_video_path}")
-        print("\n🎬 Video with burned subtitles is ready!")
-        print("📝 Subtitles are centered on screen with white text and black outline.")
+        print(f"Original video: {video_path}")
+        print(f"Video with burned subtitles: {output_video_path}")
+        print("\nVideo with burned subtitles is ready!")
+        print("Subtitles are centered on screen with white text and black outline.")
         return 0
     else:
-        print("\n❌ Failed to burn subtitles into video.")
-        print("💡 Check that ffmpeg is installed and subtitle files exist.")
+        print("\nFailed to burn subtitles into video.")
+        print("Check that ffmpeg is installed and subtitle files exist.")
         return 1
 
 if __name__ == "__main__":
