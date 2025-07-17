@@ -17,6 +17,7 @@ services:
       - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
       - AWS_REGION=${AWS_REGION:-us-east-1}
       - AWS_S3_BUCKET=${AWS_S3_BUCKET}
+      - AZURE_API_KEY=${AZURE_API_KEY}
       - PYTHONUNBUFFERED=1
     command: node dist/server.js
     restart: unless-stopped 
