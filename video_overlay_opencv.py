@@ -120,8 +120,8 @@ def overlay_text_on_chunks_opencv(video_files: List[str], caption: str, output_d
             fourcc = cv2.VideoWriter_fourcc(*'mp4v')
             out = cv2.VideoWriter(temp_output_file, fourcc, fps, (width, height))
             
-            # Create the overlay text and split into lines (max 4 words per line)
-            full_text = f"Video {unique_number} | {caption}"
+            # Use only the caption for overlay
+            full_text = f"Part {unique_number} | {caption}"
             words = full_text.split()
             
             # Split words into lines of max 4 words each
@@ -266,17 +266,17 @@ def get_video_chunks(chunks_dir: str) -> List[str]:
 def main():
     """Main function to run the script"""
     
-    # Read caption from userText.txt
+    # Read caption from caption.txt
     try:
-        with open("userText.txt", "r", encoding="utf-8") as f:
+        with open("caption.txt", "r", encoding="utf-8") as f:
             CAPTION = f.readline().strip()
-        print(f"Caption loaded from userText.txt: {CAPTION}")
+        print(f"Caption loaded from caption.txt: {CAPTION}")
     except FileNotFoundError:
         CAPTION = "Default Caption"
-        print("userText.txt not found, using default caption")
+        print("caption.txt not found, using default caption")
     except Exception as e:
         CAPTION = "Default Caption"
-        print(f"Error reading userText.txt: {e}")
+        print(f"Error reading caption.txt: {e}")
     
     # Chunks directory
     CHUNKS_DIR = "output/chunks"

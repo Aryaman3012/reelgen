@@ -9,6 +9,8 @@ import { generateTTS } from './service/tts';
 import { concatenateVideos, overlayAudioOnVideo, chunkVideo } from './service/video';
 import { processUserText } from './main';
 import AWS from 'aws-sdk';
+import FormData from 'form-data';
+import axios from 'axios';
 
 // Load environment variables
 dotenv.config();
@@ -107,16 +109,23 @@ app.post('/api/upload-to-s3', async (req, res) => {
 // @ts-ignore Express v5 type compatibility
 app.post('/api/pipeline/generate', async (req, res) => {
   try {
-    const { text, outputDir = 'output' } = req.body;
+    const { text, caption, outputDir = 'output' } = req.body;
     
     if (!text) {
       return res.status(400).json({ error: 'Text is required' });
     }
 
+    if (!caption) {
+      return res.status(400).json({ error: 'Caption is required' });
+    }
+
     console.log('[API] Starting generate pipeline...');
     
-    // Create userText.txt file for compatibility
-    await fs.writeFile('userText.txt', text, 'utf8');
+    // Create userText.txt file with combined text for TTS
+    await fs.writeFile('userText.txt', `${caption} ${text}`, 'utf8');
+    
+    // Create caption.txt file for video overlay
+    await fs.writeFile('caption.txt', caption, 'utf8');
     
     // Run the generate.js script
     const { stdout, stderr } = await execAsync('node generate.js');
@@ -357,16 +366,16 @@ app.post('/api/pipeline/chunk', async (req, res) => {
 app.post('/api/pipeline/overlay', async (req, res) => {
   try {
     const { 
-      text,
+      caption,
       chunksDir = 'output/chunks',
       outputDir = 'processed_videos'
     } = req.body;
     
     console.log('[API] Starting video overlay...');
     
-    // Update userText.txt if text is provided
-    if (text) {
-      await fs.writeFile('userText.txt', text, 'utf8');
+    // Update caption.txt if caption is provided
+    if (caption) {
+      await fs.writeFile('caption.txt', caption, 'utf8');
     }
     
     // Check if chunks directory exists
@@ -427,6 +436,65 @@ app.post('/api/pipeline/overlay', async (req, res) => {
 });
 
 /**
+ * Compress video using FFmpeg before upload
+ */
+async function compressVideo(inputPath: string): Promise<string> {
+  try {
+    const dir = path.dirname(inputPath);
+    const filename = path.basename(inputPath, '.mp4');
+    const outputPath = path.join(dir, `${filename}_compressed.mp4`);
+
+    console.log(`[API] Compressing video: ${inputPath}`);
+    
+    // Use FFmpeg to compress the video
+    // -crf 28: Higher compression (default is 23, higher = more compression)
+    // -preset faster: Faster encoding with reasonable compression
+    // -movflags +faststart: Enables fast start for web playback
+    const command = `ffmpeg -y -i "${inputPath}" -c:v libx264 -crf 28 -preset faster -c:a aac -b:a 128k -movflags +faststart "${outputPath}"`;
+    
+    await execAsync(command);
+    console.log(`[API] Video compressed successfully: ${outputPath}`);
+    
+    return outputPath;
+  } catch (error) {
+    console.error(`[API] Error compressing video:`, error);
+    throw error;
+  }
+}
+
+/**
+ * Upload a video file directly to S3
+ */
+async function uploadVideoToS3(videoPath: string): Promise<string> {
+  try {
+    // Compress the video first
+    const compressedVideoPath = await compressVideo(videoPath);
+    
+    const fileStream = fs.createReadStream(compressedVideoPath);
+    const fileName = path.basename(videoPath); // Use original filename
+    
+    const uploadParams = {
+      Bucket: process.env.AWS_S3_BUCKET || '',
+      Key: `processed_videos/${fileName}`,
+      Body: fileStream
+    };
+
+    console.log(`[S3] Uploading ${fileName} to S3...`);
+    const uploadResult = await s3.upload(uploadParams).promise();
+    
+    // Clean up compressed video
+    await fs.remove(compressedVideoPath).catch(err => 
+      console.warn(`[S3] Warning: Could not delete compressed video: ${err.message}`)
+    );
+
+    return uploadResult.Location;
+  } catch (error) {
+    console.error(`[S3] Error uploading ${videoPath}:`, error);
+    throw error;
+  }
+}
+
+/**
  * POST /api/pipeline/run-all
  * Run the complete pipeline (equivalent to run_pipeline.ps1)
  */
@@ -435,17 +503,24 @@ app.post('/api/pipeline/run-all', async (req, res) => {
   const results: Array<{step: number, name: string, success: boolean, stdout?: string, stderr?: string, error?: string}> = [];
   
   try {
-    const { text } = req.body;
+    const { text, caption } = req.body;
     
     if (!text) {
       return res.status(400).json({ error: 'Text is required' });
     }
+
+    if (!caption) {
+      return res.status(400).json({ error: 'Caption is required' });
+    }
     
     console.log('[API] Starting complete pipeline...');
     
-    // Write text to userText.txt
-    await fs.writeFile('userText.txt', text, 'utf8');
+    // Write text to userText.txt (combined for TTS)
+    await fs.writeFile('userText.txt', `${caption} ${text}`, 'utf8');
     
+    // Write caption to caption.txt (for video overlay)
+    await fs.writeFile('caption.txt', caption, 'utf8');
+
     // Step 1: Generate video
     console.log('[API] Step 1/5: Generate video...');
     try {
@@ -558,30 +633,57 @@ app.post('/api/pipeline/run-all', async (req, res) => {
     
     console.log('[API] Complete pipeline finished successfully');
     
-    // Get final results
+    // After all steps complete, get processed videos and upload them
     const processedDir = path.join(__dirname, '../processed_videos');
-    let processedFiles: Array<{filename: string, path: string, relativePath: string}> = [];
+    let processedFiles: Array<{
+      filename: string, 
+      path: string, 
+      relativePath: string,
+      s3Url?: string
+    }> = [];
     
     if (await fs.pathExists(processedDir)) {
       const files = await fs.readdir(processedDir);
       processedFiles = files
         .filter(file => file.endsWith('.mp4'))
-        .sort()
+        .sort((a, b) => {
+          const numA = parseInt(a.match(/video_(\d+)\.mp4/)?.[1] || '0');
+          const numB = parseInt(b.match(/video_(\d+)\.mp4/)?.[1] || '0');
+          return numA - numB;
+        })
         .map(file => ({
           filename: file,
           path: path.join(processedDir, file),
           relativePath: `processed_videos/${file}`
         }));
+
+      // Upload each video to S3
+      console.log('[API] Uploading processed videos to S3...');
+      for (const file of processedFiles) {
+        try {
+          const s3Url = await uploadVideoToS3(file.path);
+          file.s3Url = s3Url;
+          console.log(`[API] Successfully uploaded ${file.filename} to S3`);
+        } catch (error) {
+          console.error(`[API] Failed to upload ${file.filename}:`, error);
+          file.s3Url = `Error: ${(error as Error).message}`;
+        }
+      }
     }
     
     res.json({
       success: true,
       message: 'Complete pipeline executed successfully',
       inputText: text,
+      inputCaption: caption,
       results: results,
       finalVideos: processedFiles,
       totalSteps: 5,
-      completedSteps: results.filter(r => r.success).length
+      completedSteps: results.filter(r => r.success).length,
+      uploadResults: processedFiles.map(file => ({
+        filename: file.filename,
+        s3Url: file.s3Url
+      }))
     });
     
   } catch (error) {
